@@ -4,7 +4,8 @@ const port = process.env.PORT || 5000
 const cors = require('cors')
 const {
     MongoClient,
-    ServerApiVersion
+    ServerApiVersion,
+    ObjectId
 } = require('mongodb');
 require('dotenv').config()
 
@@ -29,6 +30,28 @@ const run = async () => {
             const result = await taskCollection.insertOne(taskData)
             res.send(result)
         })
+        // get the task data api
+        app.get('/task',async(req,res) => {
+            const query = req.query
+            const result = await taskCollection.find(query).toArray()
+            res.send(result)
+        })
+        // update task data
+        app.put('/task/:id',async (req,res) => {
+            const id = req.params.id
+            const filter = {_id: ObjectId(id)}
+            const body = req.body.complete
+            const options = {upsert: true}
+            const updateDoc = {
+                $set: {
+                    completed: body
+                }
+            }
+            const result = await taskCollection.updateOne(filter,updateDoc,options)
+            res.send(result)
+        })
+
+        // delete task
     }
     finally{
 
