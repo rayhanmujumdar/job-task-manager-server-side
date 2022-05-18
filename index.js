@@ -8,6 +8,7 @@ const {
     ObjectId
 } = require('mongodb');
 require('dotenv').config()
+var jwt = require('jsonwebtoken');
 
 //middle ware
 app.use(cors())
@@ -20,50 +21,114 @@ const client = new MongoClient(uri, {
     serverApi: ServerApiVersion.v1
 });
 
+// jwt verify
+const verify = (req, res, next) => {
+    const authHeader = req.headers.authorization
+    const token = authHeader && authHeader.split(' ')[1]
+    if (token === null) {
+        return res.sendStatus(401)
+    }
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.sendStatus(403)
+        }
+        req.decoded = decoded
+        next()
+    })
+}
 const run = async () => {
-    try{
+    try {
         await client.connect()
         const taskCollection = client.db('myTask').collection('task')
         // post task data
-        app.post('/task',async (req,res) => {
+        app.post('/task', verify, async (req, res) => {
             const taskData = req.body
-            const result = await taskCollection.insertOne(taskData)
-            res.send(result)
+            const email = req.body.email
+            const decoded = req.decoded.email
+            if (decoded === email) {
+                const result = await taskCollection.insertOne(taskData)
+                res.send(result)
+            } else {
+                res.send({
+                    success: false,
+                    status: 401
+                })
+            }
         })
         // get the task data api
-        app.get('/task',async(req,res) => {
+        app.get('/task', async (req, res) => {
             const query = req.query
             const result = await taskCollection.find(query).toArray()
             res.send(result)
         })
         // update task data
-        app.put('/task/:id',async (req,res) => {
+        app.put('/task/:id', verify, async (req, res) => {
             const id = req.params.id
-            const filter = {_id: ObjectId(id)}
-            const body = req.body.complete
-            const options = {upsert: true}
-            const updateDoc = {
-                $set: {
-                    completed: body
-                }
+            const filter = {
+                _id: ObjectId(id)
             }
-            const result = await taskCollection.updateOne(filter,updateDoc,options)
-            res.send(result)
+            const body = req.body.complete
+            const email = req.body.email
+            const decoded = req.decoded.email
+            console.log(email, decoded)
+            if (decoded === email) {
+                const options = {
+                    upsert: true
+                }
+                const updateDoc = {
+                    $set: {
+                        completed: body
+                    }
+                }
+                const result = await taskCollection.updateOne(filter, updateDoc, options)
+                res.send(result)
+            } else {
+                res.send({
+                    success: false,
+                    status: 401
+                })
+            }
+
         })
 
         // delete task
-    }
-    finally{
+        app.delete('/task/:id', verify, async (req, res) => {
+            const id = req.params
+            const decoded = req.decoded.email
+            const email = req.body.email
+            if (decoded === email) {
+                const filter = {
+                    _id: ObjectId(id)
+                }
+                const result = await taskCollection.deleteOne(filter)
+                res.send(result)
+            } else{
+                res.send({success: false,status: 401})
+            }
+        })
+        // jwt add to secure api
+        app.post('/login', (req, res) => {
+            const email = req.body.email
+            const token = jwt.sign({
+                email
+            }, process.env.JWT_SECRET, {
+                expiresIn: '1d'
+            })
+            res.send({
+                token
+            })
+        })
+    } finally {
 
     }
 }
 run().catch(console.dir)
 
 
-app.get('/',(req,res) => {
+app.get('/', (req, res) => {
     res.send('this my task manager')
 })
 
-app.listen(port,() => {
+app.listen(port, () => {
     console.log("this my port is " + port)
 })
