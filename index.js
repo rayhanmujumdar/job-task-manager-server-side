@@ -14,6 +14,9 @@ var jwt = require('jsonwebtoken');
 app.use(cors())
 app.use(express.json())
 
+// heroku deploy link
+//https://boiling-lake-25232.herokuapp.com/ 
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.olmvk.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
     useNewUrlParser: true,
@@ -26,11 +29,11 @@ const verify = (req, res, next) => {
     const authHeader = req.headers.authorization
     const token = authHeader && authHeader.split(' ')[1]
     if (token === null) {
-        return res.sendStatus(401)
+        return res.send({message: 'Unauthorized',status: 401})
     }
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
-            return res.sendStatus(403)
+            return res.send({message: 'Forbidden',status: 403})
         }
         req.decoded = decoded
         next()
@@ -50,7 +53,7 @@ const run = async () => {
                 res.send(result)
             } else {
                 res.send({
-                    success: false,
+                    message: 'Unauthorized',
                     status: 401
                 })
             }
@@ -84,7 +87,7 @@ const run = async () => {
                 res.send(result)
             } else {
                 res.send({
-                    success: false,
+                    message: 'Unauthorized',
                     status: 401
                 })
             }
@@ -103,7 +106,7 @@ const run = async () => {
                 const result = await taskCollection.deleteOne(filter)
                 res.send(result)
             } else{
-                res.send({success: false,status: 401})
+                res.send({message: 'Unauthorized',status: 401})
             }
         })
         // jwt add to secure api
